@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VayuBudhi — Urban Air Quality Intelligence",
+  title: "VayuDrishti — Urban Air Quality Intelligence",
   description: "AI-powered urban air quality intelligence platform for smart city intervention",
 };
 

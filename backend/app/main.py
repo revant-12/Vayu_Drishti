@@ -1,5 +1,5 @@
 """
-VayuBudhi — Urban Air Quality Intelligence Platform
+VayuDrishti — Urban Air Quality Intelligence Platform
 FastAPI Backend Server
 """
 
@@ -15,17 +15,17 @@ from app.services.prediction_service import train_model
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: init DB, train ML model if needed."""
-    print("Initializing VayuBudhi backend...")
+    print("Initializing VayuDrishti backend...")
     init_db()
     print("Training ML model (first run may take ~30s)...")
     metrics = train_model()
     print(f"Model ready — Accuracy: {metrics.get('accuracy_pct', 'N/A')}%")
     yield
-    print("VayuBudhi shutting down.")
+    print("VayuDrishti shutting down.")
 
 
 app = FastAPI(
-    title="VayuBudhi API",
+    title="VayuDrishti API",
     description="AI-Powered Urban Air Quality Intelligence Platform",
     version="1.0.0",
     lifespan=lifespan,
@@ -34,7 +34,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -45,7 +45,7 @@ app.include_router(api.router, prefix="/api")
 @app.get("/")
 async def root():
     return {
-        "name": "VayuBudhi API",
+        "name": "VayuDrishti API",
         "version": "1.0.0",
         "description": "AI-Powered Urban Air Quality Intelligence",
         "endpoints": {

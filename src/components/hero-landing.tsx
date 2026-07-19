@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
-  Wind, Brain, Satellite, Shield, MessageCircle, BarChart3,
+  Wind, Brain, Satellite, Shield, MessageCircle,
   ChevronRight, Cpu, Layers, Zap, Globe, ArrowDown,
 } from "lucide-react";
+import { BackgroundPaths } from "@/components/ui/background-paths";
+import { ScrollFrames, FRAME_COUNT } from "@/components/ui/scroll-frames";
 
 interface HeroLandingProps {
   onEnter: () => void;
@@ -60,6 +62,15 @@ const TECH_STACK = [
 export default function HeroLanding({ onEnter, stationCount, cityCount, avgAqi }: HeroLandingProps) {
   const [visible, setVisible] = useState(false);
   const [countUp, setCountUp] = useState({ stations: 0, cities: 0, aqi: 0 });
+  const [bgFrame, setBgFrame] = useState(0);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const max = el.scrollHeight - el.clientHeight;
+    if (max <= 0) return;
+    const progress = el.scrollTop / max;
+    setBgFrame(Math.round(progress * (FRAME_COUNT - 1)));
+  }, []);
 
   useEffect(() => {
     setVisible(true);
@@ -84,15 +95,21 @@ export default function HeroLanding({ onEnter, stationCount, cityCount, avgAqi }
   }, [stationCount, cityCount, avgAqi]);
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white overflow-y-auto">
-      {/* Animated background grid */}
-      <div className="fixed inset-0 opacity-[0.03]" style={{
-        backgroundImage: "linear-gradient(rgba(6,182,212,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(6,182,212,0.3) 1px, transparent 1px)",
-        backgroundSize: "60px 60px",
-      }} />
+    <div className="h-screen bg-zinc-950 text-white overflow-y-auto" onScroll={handleScroll}>
+      {/* Scroll-driven frame animation */}
+      <div className="fixed inset-0 z-0 opacity-35">
+        <ScrollFrames frame={bgFrame} />
+      </div>
+      {/* Dark overlay for readability */}
+      <div className="fixed inset-0 z-0 bg-gradient-to-b from-zinc-950/60 via-zinc-950/30 to-zinc-950/70 pointer-events-none" />
+
+      {/* Animated flowing paths (on top of frames) */}
+      <div className="fixed inset-0 z-[1] pointer-events-none">
+        <BackgroundPaths />
+      </div>
 
       {/* Radial glow */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] opacity-20 pointer-events-none"
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] opacity-20 pointer-events-none z-[2]"
         style={{ background: "radial-gradient(ellipse, rgba(6,182,212,0.3) 0%, transparent 70%)" }}
       />
 
@@ -111,7 +128,7 @@ export default function HeroLanding({ onEnter, stationCount, cityCount, avgAqi }
         {/* Title */}
         <h1 className="text-5xl md:text-7xl font-black tracking-tight text-center mb-3">
           <span className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
-            VayuBudhi
+            VayuDrishti
           </span>
         </h1>
         <p className="text-lg md:text-xl text-zinc-400 text-center max-w-2xl mb-2">

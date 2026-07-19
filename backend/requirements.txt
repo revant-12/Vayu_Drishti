@@ -9,3 +9,4 @@ joblib==1.5.1
 apscheduler==3.11.0
 python-dotenv==1.1.0
 pydantic==2.11.3
+reportlab==5.0.0

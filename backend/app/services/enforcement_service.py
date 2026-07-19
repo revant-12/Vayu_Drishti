@@ -119,10 +119,18 @@ def _build_enforcement_action(
     elif source_name == "Industrial Emissions":
         action_type = "Industrial Emission Violation"
         priority = "critical" if so2 > 40 or aqi > 300 else priority
+        wind_deg = 180.0
+        for ev in top_source.get("evidence", []):
+            if "°)" in ev:
+                try:
+                    wind_deg = float(ev.split("(")[-1].split("°")[0])
+                    break
+                except (ValueError, IndexError):
+                    pass
         description = (
             f"Industrial emissions contributing {source_pct:.0f}% to AQI of {aqi:.0f}. "
             f"SO₂ at {so2:.0f} µg/m³ indicates non-compliance with stack emission standards. "
-            f"Wind from {_wind_dir(float(top_source.get('evidence', [''])[0].split('(')[-1].split('°')[0]) if top_source.get('evidence') else 180)} direction aligns with industrial zone."
+            f"Wind from {_wind_dir(wind_deg)} direction aligns with industrial zone."
         )
         evidence = [
             f"AQI at {aqi:.0f} — {_aqi_label(aqi)} category",

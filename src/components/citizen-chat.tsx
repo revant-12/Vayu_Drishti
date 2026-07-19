@@ -96,7 +96,7 @@ export default function CitizenChat() {
       <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
         <div className="flex items-center gap-2">
           <Bot className="w-4 h-4 text-cyan-400" />
-          <span className="text-sm font-semibold">VayuBudhi Advisor</span>
+          <span className="text-sm font-semibold">VayuDrishti Advisor</span>
         </div>
         <div className="flex items-center gap-1">
           <Globe className="w-3 h-3 text-zinc-500" />
@@ -142,8 +142,9 @@ export default function CitizenChat() {
                   {msg.suggestions.map((s, i) => (
                     <button
                       key={i}
-                      onClick={() => { setInput(s); handleSend(s); }}
-                      className="text-[10px] bg-zinc-700/50 hover:bg-zinc-600/50 text-cyan-300 px-2 py-1 rounded-full transition-colors"
+                      disabled={loading}
+                      onClick={() => handleSend(s)}
+                      className="text-[10px] bg-zinc-700/50 hover:bg-zinc-600/50 text-cyan-300 px-2 py-1 rounded-full transition-colors disabled:opacity-50"
                     >
                       {s}
                     </button>

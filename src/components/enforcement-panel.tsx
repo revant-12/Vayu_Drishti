@@ -63,9 +63,9 @@ export default function EnforcementPanel({ actions, selectedCity }: EnforcementP
         </div>
       </div>
 
-      {actions.map((action, idx) => {
-        const priority = priorityConfig[action.priority];
-        const status = statusConfig[action.status];
+      {actions.filter((a) => !selectedCity || a.city === selectedCity).map((action, idx) => {
+        const priority = priorityConfig[action.priority] || priorityConfig.medium;
+        const status = statusConfig[action.status] || statusConfig.pending;
         const PriorityIcon = priority.icon;
         const StatusIcon = status.icon;
 

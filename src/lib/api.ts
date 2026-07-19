@@ -88,11 +88,26 @@ export async function downloadEnforcementPDF(city?: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `VayuBudhi_Enforcement_${city || "All"}_${new Date().toISOString().slice(0, 10)}.pdf`;
+  a.download = `VayuDrishti_Enforcement_${city || "All"}_${new Date().toISOString().slice(0, 10)}.pdf`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+export async function fetchHealthImpact(city?: string) {
+  const params = city ? `?city=${encodeURIComponent(city)}` : "";
+  const res = await fetch(`${API_BASE}/api/health-impact${params}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Failed to fetch health impact: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchAlerts() {
+  const res = await fetch(`${API_BASE}/api/alerts`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to fetch alerts: ${res.status}`);
+  return res.json();
 }
 
 export async function sendChatMessage(message: string, language = "en", city?: string) {

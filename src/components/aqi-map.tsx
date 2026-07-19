@@ -101,8 +101,14 @@ export default function AQIMap({
 
   useEffect(() => {
     if (!loaded || !mapInstanceRef.current) return;
+    mapInstanceRef.current.flyTo(center, zoom, { duration: 1.2 });
+  }, [center, zoom, loaded]);
+
+  useEffect(() => {
+    if (!loaded || !mapInstanceRef.current) return;
     import("leaflet").then((L) => {
-      const map = mapInstanceRef.current!;
+      if (!mapInstanceRef.current) return;
+      const map = mapInstanceRef.current;
 
       // Clear old markers
       markersRef.current.forEach((m) => m.remove());
@@ -167,7 +173,8 @@ export default function AQIMap({
   useEffect(() => {
     if (!loaded || !mapInstanceRef.current) return;
     import("leaflet").then((L) => {
-      const map = mapInstanceRef.current!;
+      if (!mapInstanceRef.current) return;
+      const map = mapInstanceRef.current;
       fireMarkersRef.current.forEach((m) => m.remove());
       fireMarkersRef.current = [];
 

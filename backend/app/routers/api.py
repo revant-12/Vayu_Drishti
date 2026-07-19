@@ -1,5 +1,5 @@
 """
-VayuBudhi API Routes.
+VayuDrishti API Routes.
 All endpoints that the frontend consumes.
 """
 
@@ -24,6 +24,8 @@ from app.services.dispersion_service import calculate_dispersion
 from app.services.agent_orchestrator import get_intelligence_report, get_city_intelligence
 from app.services.chat_service import process_chat_message
 from app.services.report_service import generate_enforcement_pdf
+from app.services.health_impact_service import estimate_health_impact
+from app.services.alert_service import generate_alerts
 
 router = APIRouter()
 
@@ -117,7 +119,7 @@ async def get_station_detail(station_id: str):
 @router.get("/predictions/{station_id}")
 async def get_predictions(
     station_id: str,
-    hours: int = Query(default=72, le=168),
+    hours: int = Query(default=72, ge=1, le=168),
 ):
     """Get ML-powered AQI predictions for a station."""
     stations = await fetch_live_cpcb_data()
@@ -327,7 +329,7 @@ async def get_city_report(city: str):
     """Get focused multi-agent intelligence report for a single city."""
     stations = await fetch_live_cpcb_data()
     satellite = await get_satellite_hotspots(city)
-    report = await get_city_intelligence(city, stations, satellite)
+    report = await get_city_intelligence(city, stations, {city: satellite})
     return report
 
 
@@ -421,6 +423,65 @@ async def get_comparative():
     return {"cities": comparative}
 
 
+# === Health Impact Estimator ===
+
+@router.get("/health-impact")
+async def get_health_impact(city: Optional[str] = None):
+    """Get estimated health burden from current air pollution levels."""
+    stations = await fetch_live_cpcb_data()
+
+    cities = {}
+    for s in stations:
+        c = s.get("city", "Unknown")
+        if c not in cities:
+            cities[c] = {"aqis": [], "pm25": [], "pm10": []}
+        cities[c]["aqis"].append(s.get("aqi", 0))
+        cities[c]["pm25"].append(s.get("pm25", 0))
+        cities[c]["pm10"].append(s.get("pm10", 0))
+
+    if city:
+        cities = {k: v for k, v in cities.items() if k.lower() == city.lower()}
+
+    results = []
+    for c, data in cities.items():
+        n = len(data["aqis"])
+        avg_aqi = sum(data["aqis"]) / n if n else 0
+        avg_pm25 = sum(data["pm25"]) / n if n else 0
+        avg_pm10 = sum(data["pm10"]) / n if n else 0
+
+        impact = estimate_health_impact(c, avg_aqi, avg_pm25, avg_pm10)
+        results.append(impact)
+
+    results.sort(key=lambda x: x["health_metrics"]["premature_deaths_annual"], reverse=True)
+
+    total_deaths = sum(r["health_metrics"]["premature_deaths_annual"] for r in results)
+    total_cost = sum(r["economic_impact"]["total_cost_crore"] for r in results)
+
+    return {
+        "cities": results,
+        "summary": {
+            "total_premature_deaths": total_deaths,
+            "total_economic_cost_crore": total_cost,
+            "cities_analyzed": len(results),
+        },
+    }
+
+
+# === Real-Time Alerts ===
+
+@router.get("/alerts")
+async def get_alerts():
+    """Get real-time AQI alerts and threshold crossings."""
+    stations = await fetch_live_cpcb_data()
+    alerts = generate_alerts(stations)
+    return {
+        "alerts": alerts,
+        "count": len(alerts),
+        "emergency_count": sum(1 for a in alerts if a["level"] == "emergency"),
+        "critical_count": sum(1 for a in alerts if a["level"] == "critical"),
+    }
+
+
 # === PDF Report Generation ===
 
 @router.get("/report/pdf")
@@ -461,7 +522,7 @@ async def download_enforcement_pdf(city: Optional[str] = None):
 
     from datetime import datetime
     ts = datetime.now().strftime("%Y%m%d_%H%M")
-    filename = f"VayuBudhi_Enforcement_{city or 'All'}_{ts}.pdf"
+    filename = f"VayuDrishti_Enforcement_{city or 'All'}_{ts}.pdf"
 
     return Response(
         content=pdf_bytes,

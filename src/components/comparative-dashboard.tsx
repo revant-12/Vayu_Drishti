@@ -5,7 +5,7 @@ import { fetchComparative } from "@/lib/api";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer, Cell, LineChart, Line,
+  ResponsiveContainer, Cell,
 } from "recharts";
 
 interface CityComparative {

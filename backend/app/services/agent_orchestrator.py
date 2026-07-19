@@ -276,17 +276,23 @@ class PredictionAgent(BaseAgent):
             pm25 = data.get("pollutants", {}).get("pm25_avg", 30)
             pm10 = data.get("pollutants", {}).get("pm10_avg", 60)
 
+            city_base = {
+                "Delhi": 185, "Mumbai": 115, "Kolkata": 145,
+                "Bengaluru": 85, "Chennai": 95, "Lucknow": 175,
+                "Patna": 195, "Hyderabad": 100,
+            }.get(city, 150)
+
             city_pred = predict_aqi(
-                current_aqi=avg_aqi, pm25=pm25, pm10=pm10,
+                current_aqi=avg_aqi, current_pm25=pm25, current_pm10=pm10,
                 temperature=32, humidity=55, wind_speed=8,
-                city=city, station_type="mixed", hours_ahead=72
+                city_base_aqi=city_base, station_type="mixed", hours_ahead=72
             )
 
-            trend = "improving" if city_pred[-1]["aqi"] < city_pred[0]["aqi"] else "worsening"
-            max_aqi = max(p["aqi"] for p in city_pred)
-            min_aqi = min(p["aqi"] for p in city_pred)
+            trend = "improving" if city_pred[-1]["predicted_aqi"] < city_pred[0]["predicted_aqi"] else "worsening"
+            max_aqi = max(p["predicted_aqi"] for p in city_pred)
+            min_aqi = min(p["predicted_aqi"] for p in city_pred)
 
-            alert_hours = [p["hour"] for p in city_pred if p["aqi"] > 200]
+            alert_hours = [p["hour_offset"] for p in city_pred if p["predicted_aqi"] > 200]
 
             predictions[city] = {
                 "forecast_hours": 72,
@@ -495,6 +501,7 @@ class OrchestratorAgent:
         """Run the full multi-agent pipeline and produce a unified intelligence report."""
         report_start = time.time()
 
+        self.execution_log = self.execution_log[-50:]
         self._log("Orchestrator", "Starting multi-agent intelligence pipeline")
 
         self._log("Orchestrator", "Dispatching DataFusionAgent")

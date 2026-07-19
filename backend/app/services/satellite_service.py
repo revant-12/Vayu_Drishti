@@ -6,6 +6,7 @@ near monitored cities. Uses VIIRS (Visible Infrared Imaging Radiometer Suite)
 satellite sensor data.
 """
 
+import os
 import ssl
 import urllib.request
 import json as _json
@@ -14,7 +15,7 @@ import io
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urlencode
 
-NASA_FIRMS_MAP_KEY = "e23c24f4e3d9a2c1b5f67890abcdef12"
+NASA_FIRMS_MAP_KEY = os.getenv("NASA_FIRMS_MAP_KEY", "e23c24f4e3d9a2c1b5f67890abcdef12")
 FIRMS_BASE = "https://firms.modaps.eosdis.nasa.gov/api/area/csv"
 
 CITY_BOUNDS = {

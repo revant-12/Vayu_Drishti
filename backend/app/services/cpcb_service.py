@@ -36,7 +36,7 @@ _TRAFFIC_KEYWORDS = ["road", "marg", "highway", "nagar", "crossing", "chowk", "g
 _INDUSTRIAL_KEYWORDS = ["industrial", "phase", "sector", "midc", "factory", "plant", "okhla"]
 _RESIDENTIAL_KEYWORDS = ["colony", "layout", "park", "garden", "memorial", "school", "hospital", "university", "college", "vidyalaya"]
 
-MAX_DATA_AGE_HOURS = 6
+MAX_DATA_AGE_HOURS = 24
 
 _cache: dict = {"stations": [], "timestamp": None, "ttl_minutes": 10}
 
@@ -90,13 +90,22 @@ async def fetch_live_cpcb_data() -> list[dict]:
     if DATAGOV_KEY:
         stations_data = await _fetch_datagov_data()
 
-    if not stations_data and WAQI_TOKEN:
-        print("data.gov.in unavailable — trying WAQI fallback")
-        stations_data = await _fetch_waqi_fallback()
+    # Identify which cities are missing from data.gov.in results
+    cities_covered = set(s.get("city") for s in stations_data)
+    missing_cities = [c for c in MONITORED_CITIES if c not in cities_covered]
 
-    if not stations_data:
-        print("All APIs unavailable — using model-generated data")
-        stations_data = _generate_realistic_data()
+    # Fill missing cities from WAQI
+    if missing_cities and WAQI_TOKEN:
+        print(f"Fetching WAQI fallback for missing cities: {missing_cities}")
+        waqi_data = await _fetch_waqi_fallback(cities=missing_cities)
+        stations_data.extend(waqi_data)
+
+    # Fill any still-missing cities with model-generated data
+    cities_covered = set(s.get("city") for s in stations_data)
+    still_missing = [c for c in MONITORED_CITIES if c not in cities_covered]
+    if still_missing:
+        print(f"Generating model data for cities still missing: {still_missing}")
+        stations_data.extend(_generate_realistic_data(cities=still_missing))
 
     _cache["stations"] = stations_data
     _cache["timestamp"] = datetime.now(timezone.utc)
@@ -116,11 +125,13 @@ async def _fetch_datagov_data() -> list[dict]:
     def _sync_fetch_city(city: str) -> dict | None:
         params = urlencode({"api-key": DATAGOV_KEY, "format": "json", "filters[city]": city, "limit": 500})
         url = f"{DATAGOV_BASE}/{DATAGOV_RESOURCE}?{params}"
-        req = urllib.request.Request(url, headers={"User-Agent": "VayuBudhi/1.0", "Accept": "application/json"})
+        req = urllib.request.Request(url, headers={"User-Agent": "VayuDrishti/1.0", "Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=30, context=_ssl_ctx) as resp:
             return _json.loads(resp.read().decode())
 
-    for city in MONITORED_CITIES:
+    for i, city in enumerate(MONITORED_CITIES):
+        if i > 0:
+            await asyncio.sleep(1.5)
         try:
             data = await asyncio.to_thread(_sync_fetch_city, city)
             if not data:
@@ -228,8 +239,8 @@ async def _fetch_datagov_data() -> list[dict]:
     return all_stations
 
 
-async def _fetch_waqi_fallback() -> list[dict]:
-    """Fallback: fetch from WAQI API for cities missing from data.gov.in."""
+async def _fetch_waqi_fallback(cities: list[str] | None = None) -> list[dict]:
+    """Fallback: fetch from WAQI API for specified cities (or all if None)."""
     all_stations = []
     city_bounds = {
         "Delhi":     (28.40, 76.80, 28.90, 77.50),
@@ -242,9 +253,14 @@ async def _fetch_waqi_fallback() -> list[dict]:
         "Hyderabad": (17.30, 78.30, 17.55, 78.60),
     }
 
+    target_cities = cities if cities else list(city_bounds.keys())
+
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
-            for city, (lat1, lng1, lat2, lng2) in city_bounds.items():
+            for city in target_cities:
+                if city not in city_bounds:
+                    continue
+                (lat1, lng1, lat2, lng2) = city_bounds[city]
                 try:
                     resp = await client.get(
                         f"{WAQI_BASE}/map/bounds",
@@ -352,8 +368,8 @@ def _infer_station_type(name: str) -> str:
 
 def calculate_aqi_from_pm25(pm25: float) -> int:
     breakpoints = [
-        (0, 30, 0, 50), (31, 60, 51, 100), (61, 90, 101, 200),
-        (91, 120, 201, 300), (121, 250, 301, 400), (250, 500, 401, 500),
+        (0, 30, 0, 50), (30, 60, 51, 100), (60, 90, 101, 200),
+        (90, 120, 201, 300), (120, 250, 301, 400), (250, 500, 401, 500),
     ]
     for bp_lo, bp_hi, i_lo, i_hi in breakpoints:
         if pm25 <= bp_hi:
@@ -363,8 +379,8 @@ def calculate_aqi_from_pm25(pm25: float) -> int:
 
 def calculate_aqi_from_pm10(pm10: float) -> int:
     breakpoints = [
-        (0, 50, 0, 50), (51, 100, 51, 100), (101, 250, 101, 200),
-        (251, 350, 201, 300), (351, 430, 301, 400), (430, 600, 401, 500),
+        (0, 50, 0, 50), (50, 100, 51, 100), (100, 250, 101, 200),
+        (250, 350, 201, 300), (350, 430, 301, 400), (430, 600, 401, 500),
     ]
     for bp_lo, bp_hi, i_lo, i_hi in breakpoints:
         if pm10 <= bp_hi:
@@ -374,8 +390,8 @@ def calculate_aqi_from_pm10(pm10: float) -> int:
 
 def _calculate_aqi_from_no2(no2: float) -> int:
     breakpoints = [
-        (0, 40, 0, 50), (41, 80, 51, 100), (81, 180, 101, 200),
-        (181, 280, 201, 300), (281, 400, 301, 400), (400, 800, 401, 500),
+        (0, 40, 0, 50), (40, 80, 51, 100), (80, 180, 101, 200),
+        (180, 280, 201, 300), (280, 400, 301, 400), (400, 800, 401, 500),
     ]
     for bp_lo, bp_hi, i_lo, i_hi in breakpoints:
         if no2 <= bp_hi:
@@ -385,8 +401,8 @@ def _calculate_aqi_from_no2(no2: float) -> int:
 
 def _calculate_aqi_from_so2(so2: float) -> int:
     breakpoints = [
-        (0, 40, 0, 50), (41, 80, 51, 100), (81, 380, 101, 200),
-        (381, 800, 201, 300), (801, 1600, 301, 400), (1600, 2400, 401, 500),
+        (0, 40, 0, 50), (40, 80, 51, 100), (80, 380, 101, 200),
+        (380, 800, 201, 300), (800, 1600, 301, 400), (1600, 2400, 401, 500),
     ]
     for bp_lo, bp_hi, i_lo, i_hi in breakpoints:
         if so2 <= bp_hi:
@@ -396,8 +412,8 @@ def _calculate_aqi_from_so2(so2: float) -> int:
 
 def _calculate_aqi_from_co(co: float) -> int:
     breakpoints = [
-        (0, 1, 0, 50), (1.1, 2, 51, 100), (2.1, 10, 101, 200),
-        (10.1, 17, 201, 300), (17.1, 34, 301, 400), (34, 50, 401, 500),
+        (0, 1, 0, 50), (1, 2, 51, 100), (2, 10, 101, 200),
+        (10, 17, 201, 300), (17, 34, 301, 400), (34, 50, 401, 500),
     ]
     for bp_lo, bp_hi, i_lo, i_hi in breakpoints:
         if co <= bp_hi:
@@ -407,8 +423,8 @@ def _calculate_aqi_from_co(co: float) -> int:
 
 def _calculate_aqi_from_o3(o3: float) -> int:
     breakpoints = [
-        (0, 50, 0, 50), (51, 100, 51, 100), (101, 168, 101, 200),
-        (169, 208, 201, 300), (209, 748, 301, 400), (748, 1000, 401, 500),
+        (0, 50, 0, 50), (50, 100, 51, 100), (100, 168, 101, 200),
+        (168, 208, 201, 300), (208, 748, 301, 400), (748, 1000, 401, 500),
     ]
     for bp_lo, bp_hi, i_lo, i_hi in breakpoints:
         if o3 <= bp_hi:
@@ -418,8 +434,8 @@ def _calculate_aqi_from_o3(o3: float) -> int:
 
 def _calculate_aqi_from_nh3(nh3: float) -> int:
     breakpoints = [
-        (0, 200, 0, 50), (201, 400, 51, 100), (401, 800, 101, 200),
-        (801, 1200, 201, 300), (1201, 1800, 301, 400), (1800, 2400, 401, 500),
+        (0, 200, 0, 50), (200, 400, 51, 100), (400, 800, 101, 200),
+        (800, 1200, 201, 300), (1200, 1800, 301, 400), (1800, 2400, 401, 500),
     ]
     for bp_lo, bp_hi, i_lo, i_hi in breakpoints:
         if nh3 <= bp_hi:
@@ -434,37 +450,58 @@ _FALLBACK_STATIONS = {
         {"id": "site_1", "name": "Anand Vihar, Delhi", "lat": 28.6469, "lng": 77.3164, "type": "traffic"},
         {"id": "site_5", "name": "ITO, Delhi", "lat": 28.6289, "lng": 77.2405, "type": "traffic"},
         {"id": "site_11", "name": "RK Puram, Delhi", "lat": 28.5631, "lng": 77.1726, "type": "mixed"},
+        {"id": "site_12", "name": "Dwarka Sector 8, Delhi", "lat": 28.5733, "lng": 77.0713, "type": "residential"},
     ],
     "Mumbai": [
         {"id": "site_1435", "name": "Bandra Kurla Complex, Mumbai", "lat": 19.0596, "lng": 72.8656, "type": "traffic"},
         {"id": "site_1438", "name": "Chembur, Mumbai", "lat": 19.0522, "lng": 72.8994, "type": "industrial"},
+        {"id": "site_1436", "name": "Worli, Mumbai", "lat": 19.0176, "lng": 72.8153, "type": "residential"},
+        {"id": "site_1437", "name": "Borivali East, Mumbai", "lat": 19.2307, "lng": 72.8567, "type": "mixed"},
     ],
     "Kolkata": [
         {"id": "site_1441", "name": "Jadavpur, Kolkata", "lat": 22.4992, "lng": 88.3714, "type": "traffic"},
+        {"id": "site_1442", "name": "Victoria Memorial, Kolkata", "lat": 22.5448, "lng": 88.3426, "type": "mixed"},
+        {"id": "site_1443", "name": "Bidhannagar, Kolkata", "lat": 22.5958, "lng": 88.4074, "type": "residential"},
+        {"id": "site_1444", "name": "Howrah, Kolkata", "lat": 22.5958, "lng": 88.2636, "type": "industrial"},
     ],
     "Bengaluru": [
         {"id": "site_1450", "name": "Silk Board, Bengaluru", "lat": 12.9172, "lng": 77.6228, "type": "traffic"},
+        {"id": "site_1451", "name": "Peenya, Bengaluru", "lat": 13.0290, "lng": 77.5194, "type": "industrial"},
+        {"id": "site_1452", "name": "BTM Layout, Bengaluru", "lat": 12.9166, "lng": 77.6101, "type": "residential"},
+        {"id": "site_1453", "name": "Hebbal, Bengaluru", "lat": 13.0358, "lng": 77.5970, "type": "traffic"},
     ],
     "Chennai": [
         {"id": "site_1460", "name": "Manali, Chennai", "lat": 13.1667, "lng": 80.2667, "type": "industrial"},
+        {"id": "site_1461", "name": "Alandur, Chennai", "lat": 13.0032, "lng": 80.2052, "type": "traffic"},
+        {"id": "site_1462", "name": "Velachery, Chennai", "lat": 12.9815, "lng": 80.2180, "type": "residential"},
+        {"id": "site_1463", "name": "Kodungaiyur, Chennai", "lat": 13.1281, "lng": 80.2425, "type": "industrial"},
     ],
     "Lucknow": [
         {"id": "site_1470", "name": "Talkatora, Lucknow", "lat": 26.8534, "lng": 80.9098, "type": "mixed"},
+        {"id": "site_1471", "name": "Gomti Nagar, Lucknow", "lat": 26.8563, "lng": 80.9924, "type": "residential"},
+        {"id": "site_1472", "name": "Aliganj, Lucknow", "lat": 26.8953, "lng": 80.9420, "type": "traffic"},
     ],
     "Patna": [
         {"id": "site_1480", "name": "IGSC Planetarium, Patna", "lat": 25.6093, "lng": 85.1376, "type": "mixed"},
+        {"id": "site_1481", "name": "Rajbansi Nagar, Patna", "lat": 25.5942, "lng": 85.0748, "type": "residential"},
+        {"id": "site_1482", "name": "Patna Collectorate, Patna", "lat": 25.6120, "lng": 85.1024, "type": "traffic"},
     ],
     "Hyderabad": [
         {"id": "site_1490", "name": "Jubilee Hills, Hyderabad", "lat": 17.4326, "lng": 78.4071, "type": "residential"},
+        {"id": "site_1491", "name": "Jeedimetla, Hyderabad", "lat": 17.4947, "lng": 78.4340, "type": "industrial"},
+        {"id": "site_1492", "name": "Abids, Hyderabad", "lat": 17.3924, "lng": 78.4748, "type": "traffic"},
     ],
 }
 
 
-def _generate_realistic_data() -> list[dict]:
+def _generate_realistic_data(cities: list[str] | None = None) -> list[dict]:
     now = datetime.now(timezone.utc)
     stations_data = []
-    for city, stations in _FALLBACK_STATIONS.items():
-        for stn in stations:
+    target_cities = cities if cities else list(_FALLBACK_STATIONS.keys())
+    for city in target_cities:
+        if city not in _FALLBACK_STATIONS:
+            continue
+        for stn in _FALLBACK_STATIONS[city]:
             stations_data.append(_generate_single_station(stn, city, now))
     return stations_data
 

@@ -196,7 +196,7 @@ HEALTH_ADVISORIES = {
 }
 
 GREETING = {
-    "en": "Hello! I'm VayuBudhi, your AI air quality advisor. I can help you with:\n- Current AQI and health advisories for any city\n- Safety tips for outdoor activities\n- Advice for children, elderly, and vulnerable groups\n- Mask and precaution recommendations\n\nWhich city would you like to know about?",
+    "en": "Hello! I'm VayuDrishti, your AI air quality advisor. I can help you with:\n- Current AQI and health advisories for any city\n- Safety tips for outdoor activities\n- Advice for children, elderly, and vulnerable groups\n- Mask and precaution recommendations\n\nWhich city would you like to know about?",
     "hi": "नमस्ते! मैं वायुबुद्धि हूं, आपका AI वायु गुणवत्ता सलाहकार। मैं आपकी मदद कर सकता हूं:\n- किसी भी शहर का वर्तमान AQI और स्वास्थ्य सलाह\n- बाहरी गतिविधियों के लिए सुरक्षा सुझाव\n- बच्चों, बुजुर्गों और संवेदनशील समूहों के लिए सलाह\n- मास्क और सावधानी की सिफारिशें\n\nआप किस शहर के बारे में जानना चाहेंगे?",
     "ta": "வணக்கம்! நான் வாயுபுத்தி, உங்கள் AI காற்று தர ஆலோசகர். நான் உதவ முடியும்:\n- எந்த நகரத்தின் தற்போதைய AQI மற்றும் சுகாதார ஆலோசனை\n- வெளிப்புற செயல்பாடுகளுக்கான பாதுகாப்பு குறிப்புகள்\n- குழந்தைகள் மற்றும் முதியவர்களுக்கான ஆலோசனை\n\nஎந்த நகரத்தைப் பற்றி தெரிந்துகொள்ள விரும்புகிறீர்கள்?",
     "kn": "ನಮಸ್ಕಾರ! ನಾನು ವಾಯುಬುದ್ಧಿ, ನಿಮ್ಮ AI ಗಾಳಿ ಗುಣಮಟ್ಟ ಸಲಹೆಗಾರ. ನಾನು ಸಹಾಯ ಮಾಡಬಲ್ಲೆ:\n- ಯಾವುದೇ ನಗರದ ಪ್ರಸ್ತುತ AQI ಮತ್ತು ಆರೋಗ್ಯ ಸಲಹೆ\n- ಹೊರಾಂಗಣ ಚಟುವಟಿಕೆಗಳಿಗೆ ಸುರಕ್ಷತೆ ಸಲಹೆಗಳು\n\nಯಾವ ನಗರದ ಬಗ್ಗೆ ತಿಳಿಯಲು ಬಯಸುತ್ತೀರಿ?",
@@ -251,7 +251,7 @@ async def _try_gemini_response(message: str, context: str, lang: str) -> str | N
         return None
 
     lang_name = LANGUAGES.get(lang, "English")
-    prompt = f"""You are VayuBudhi, an AI air quality health advisor for Indian cities.
+    prompt = f"""You are VayuDrishti, an AI air quality health advisor for Indian cities.
 Respond in {lang_name}. Be concise (2-3 sentences max). Use the following real-time data:
 
 {context}
@@ -260,7 +260,7 @@ User question: {message}
 
 Provide a helpful, health-focused response based on the AQI data. Include specific advice."""
 
-    try:
+    def _call_gemini():
         _ssl_ctx = ssl.create_default_context()
         _ssl_ctx.check_hostname = False
         _ssl_ctx.verify_mode = ssl.CERT_NONE
@@ -272,11 +272,15 @@ Provide a helpful, health-focused response based on the AQI data. Include specif
         }).encode()
         req = urllib.request.Request(url, data=body, headers={
             "Content-Type": "application/json",
-            "User-Agent": "VayuBudhi/1.0",
+            "User-Agent": "VayuDrishti/1.0",
         })
         with urllib.request.urlopen(req, timeout=10, context=_ssl_ctx) as resp:
             data = _json.loads(resp.read().decode())
             return data["candidates"][0]["content"]["parts"][0]["text"]
+
+    try:
+        import asyncio
+        return await asyncio.to_thread(_call_gemini)
     except Exception as e:
         print(f"Gemini API error: {e}")
         return None
