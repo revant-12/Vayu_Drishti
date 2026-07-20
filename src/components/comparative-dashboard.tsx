@@ -112,7 +112,8 @@ export default function ComparativeDashboard() {
               <Tooltip
                 contentStyle={{ backgroundColor: "#18181b", border: "1px solid #3f3f46", borderRadius: 8, fontSize: 12 }}
                 labelStyle={{ color: "#e4e4e7" }}
-                formatter={(value: number, name: string) => [value, name === "aqi" ? "Avg AQI" : name === "max" ? "Max" : "Min"]}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                formatter={((value: number, name: string) => [value, name === "aqi" ? "Avg AQI" : name === "max" ? "Max" : "Min"]) as any}
               />
               <Bar dataKey="aqi" name="Avg AQI" radius={[4, 4, 0, 0]}>
                 {barData.map((entry, i) => (
@@ -199,10 +200,11 @@ export default function ComparativeDashboard() {
               <YAxis tick={{ fontSize: 10, fill: "#a1a1aa" }} domain={[0, 100]} />
               <Tooltip
                 contentStyle={{ backgroundColor: "#18181b", border: "1px solid #3f3f46", borderRadius: 8, fontSize: 12 }}
-                formatter={(value: number, name: string) => [
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                formatter={((value: number, name: string) => [
                   name === "compliance" ? `${value}%` : value,
                   name === "compliance" ? "Compliance" : "Critical Stations",
-                ]}
+                ]) as any}
               />
               <Bar dataKey="compliance" name="Compliance %" radius={[4, 4, 0, 0]}>
                 {complianceData.map((entry, i) => (
