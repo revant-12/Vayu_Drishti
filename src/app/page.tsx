@@ -92,7 +92,7 @@ export default function Dashboard() {
       setStations(newStations);
       setCityStats((citiesRes.cities || []).map((c: Record<string, unknown>) => mapApiCity(c)));
       setEnforcementActions((enforcementRes.actions || []).map((a: Record<string, unknown>) => mapApiEnforcement(a)));
-      setSelectedStation((prev) => prev ? newStations.find((s) => s.id === prev.id) ?? null : null);
+      setSelectedStation((prev) => prev ? newStations.find((s: Station) => s.id === prev.id) ?? null : null);
       setLastRefresh(new Date());
     } catch (err) {
       console.error("Failed to load data:", err);
